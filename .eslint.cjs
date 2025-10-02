@@ -3,20 +3,20 @@ module.exports = {
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 'latest',
-    sourceType: 'module'
+    sourceType: 'module',
   },
   plugins: ['@typescript-eslint'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'prettier'
+    'plugin:prettier/recommended',
   ],
   env: {
     node: true,
     es2021: true,
-    jest: true
+    jest: true,
   },
   rules: {
     // rules
-  }
+  },
 };
