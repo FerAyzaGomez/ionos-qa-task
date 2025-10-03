@@ -8,85 +8,58 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      # 🔧 Ajusta si tu spec no está justo aquí:
       SPEC_PATH: mocks/openapi-billing.yml
-      # Tu código lee estas vars en src/config/env
       API_URL: http://127.0.0.1:4010
-      CONTRACT_OK: '12345' # 5-10 dígitos (cumple el pattern del path param)
+      CONTRACT_OK: '12345'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install deps
-        run: npm ci
+      - run: npm ci
 
-      # --- Debug rápido para confirmar que el YAML existe y es accesible ---
-      - name: Show spec path
+      - name: Show spec
         run: |
-          echo "Workspace: $GITHUB_WORKSPACE"
-          echo "SPEC_PATH: $SPEC_PATH"
           ls -la $(dirname "$SPEC_PATH") || true
-          echo "---- Spec head ----"
-          sed -n '1,40p' "$SPEC_PATH" || true
-          echo "-------------------"
+          head -n 30 "$SPEC_PATH" || true
 
-      # --- Arranca Prism con npx, en background, y log a fichero ---
-      - name: Start Prism (background)
+      - name: Start Prism
         run: |
           npx -y @stoplight/prism-cli@5 mock -h 0.0.0.0 -p 4010 "$SPEC_PATH" > prism.log 2>&1 &
           echo $! > prism.pid
-          sleep 1
-          echo "Prism PID: $(cat prism.pid)"
 
-      # --- Espera real: primero puerto abierto, después endpoint del spec ---
-      - name: Wait for Prism (port + real endpoint probe)
+      - name: Wait for Prism
         run: |
-          # Esperar a que el puerto esté abierto
           for i in {1..60}; do
             if (echo > /dev/tcp/127.0.0.1/4010) >/dev/null 2>&1; then
-              echo "Port 4010 is open"; break; fi
-            echo "Waiting for port 4010... ($i)"; sleep 1
+              echo "Prism is up"; break; fi
+            sleep 1
           done
-
-          # Golpear un endpoint real del spec; nos vale cualquier código != 000
           for i in {1..40}; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               -H "Accept: application/json" \
               -H "Authorization: Bearer anything" \
-              "http://127.0.0.1:4010/${CONTRACT_OK}/invoices")
+              "$API_URL/$CONTRACT_OK/invoices")
             if [ "$CODE" != "000" ]; then
-              echo "Prism answered /${CONTRACT_OK}/invoices with HTTP $CODE"; exit 0; fi
-            echo "Waiting Prism HTTP response... ($i)"; sleep 2
+              echo "Prism answered with HTTP $CODE"; exit 0; fi
+            sleep 2
           done
+          echo "Prism did not respond"; tail -n 50 prism.log || true; exit 1
 
-          echo "Prism did not respond in time. Prism log tail:"
-          tail -n 200 prism.log || true
-          exit 1
+      - run: npm test
 
-      - name: Run tests
-        run: npm test
-
-      # --- Siempre muestra logs de Prism si algo falla ---
-      - name: Show Prism logs on failure
+      - name: Prism logs on failure
         if: failure()
-        run: |
-          echo "===== PRISM LOG (tail) ====="
-          tail -n 400 prism.log || true
+        run: tail -n 200 prism.log || true
 
-      # --- Para Prism pase lo que pase ---
       - name: Stop Prism
         if: always()
-        run: |
-          if [ -f prism.pid ]; then kill "$(cat prism.pid)" 2>/dev/null || true; fi
+        run: kill $(cat prism.pid) || true
 
-      # (Opcional) Sube logs y reports como artefactos
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
