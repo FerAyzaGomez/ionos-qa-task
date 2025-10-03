@@ -1,5 +1,4 @@
 name: CI
-
 on: [push, pull_request]
 
 jobs:
@@ -8,6 +7,7 @@ jobs:
     env:
       API_URL: http://127.0.0.1:4010
       CONTRACT_OK: '123456'
+
     steps:
       - uses: actions/checkout@v4
 
@@ -18,22 +18,37 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: List mocks folder (debug)
+        run: |
+          echo "PWD=$(pwd)"
+          ls -la
+          echo "Listing mocks/ :"
+          ls -la mocks || true
+          echo "Show first lines of mocks/openapi-billing.yml:"
+          sed -n '1,40p' mocks/openapi-billing.yml || true
+
       - name: Start Prism mock (detached)
         run: |
           docker run -d --name prism \
             -p 4010:4010 \
             -v "${{ github.workspace }}/mocks:/work/mocks:ro" \
+            --pull always \
             stoplight/prism:4 \
             mock -h 0.0.0.0 -p 4010 /work/mocks/openapi-billing.yml
+          echo "Container started:"
+          docker ps -a
 
       - name: Wait for Prism to be healthy
         run: |
           for i in {1..40}; do
             if curl -fsS http://127.0.0.1:4010/_prism/health >/dev/null; then
               echo "Prism is healthy"; exit 0; fi
-            echo "Waiting for Prism..."; sleep 2
+            echo "Waiting for Prism... ($i)"
+            sleep 2
           done
-          echo "Prism not healthy in time"; docker logs prism; exit 1
+          echo "Prism not healthy in time. Dumping logs:"
+          docker logs prism || true
+          exit 1
 
       - name: Run tests
         run: npm test
