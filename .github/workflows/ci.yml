@@ -1,0 +1,47 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: http://127.0.0.1:4010
+      CONTRACT_OK: '123456'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Start Prism mock (detached)
+        run: |
+          docker run -d --name prism \
+            -p 4010:4010 \
+            -v "${{ github.workspace }}/mocks:/work/mocks:ro" \
+            stoplight/prism:4 \
+            mock -h 0.0.0.0 -p 4010 /work/mocks/openapi-billing.yml
+
+      - name: Wait for Prism to be healthy
+        run: |
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:4010/_prism/health >/dev/null; then
+              echo "Prism is healthy"; exit 0; fi
+            echo "Waiting for Prism..."; sleep 2
+          done
+          echo "Prism not healthy in time"; docker logs prism; exit 1
+
+      - name: Run tests
+        run: npm test
+
+      - name: Always show Prism logs on failure
+        if: failure()
+        run: docker logs prism || true
+
+      - name: Stop Prism
+        if: always()
+        run: docker rm -f prism || true
