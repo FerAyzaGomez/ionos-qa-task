@@ -40,7 +40,7 @@ describe('Invoices - Edge cases', () => {
   test('406 Not Acceptable - requesting application/xml', async () => {
     res = await request(API_URL)
       .get(`/${CONTRACT_OK}/invoices`)
-      .set('Accept', 'text/csv') // formato no soportado
+      .set('Accept', 'text/csv')
       .set('Authorization', 'Bearer anything');
 
     expect(res.status).toBe(406);
