@@ -1,0 +1,3 @@
+test.skip('aún no implementado', () => {
+  // ...
+});

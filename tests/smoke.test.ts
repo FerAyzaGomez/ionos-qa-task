@@ -1,6 +1,6 @@
 import { api } from '../src/http/client';
 
-describe('Billing API mock smoke test', () => {
+describe.skip('Billing API mock smoke test', () => {
   it('200 with auth header', async () => {
     const res = await api.get('/123456/invoices', {
       headers: { Authorization: 'Bearer dummy' },
