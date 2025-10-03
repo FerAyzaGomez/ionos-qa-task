@@ -1,5 +1,4 @@
 import { invoicesClient } from '../../../src/clients/invoices.client';
-// import { InvoicesValidator } from '../../../src/validators/invoices.validators';
 import * as InvoicesValidator from '../../../src/validators/invoices.validators';
 import type { InvoiceListResponse } from '../../../src/validators/invoices.validators';
 import { expectJsonContentType } from '../../../src/helpers/validation';
