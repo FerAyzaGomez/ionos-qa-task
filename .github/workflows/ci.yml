@@ -41,6 +41,9 @@ jobs:
             mock -h 0.0.0.0 -p 4010 /work/mocks/openapi-billing.yml
           docker ps -a
 
+      - name: Prism logs (debug)
+        run: docker logs prism || true
+
       - name: Wait for Prism to be ready (probe real endpoint)
         run: |
           # Espera a que el puerto esté abierto
