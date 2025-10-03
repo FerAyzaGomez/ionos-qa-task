@@ -1,80 +1,98 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+  pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
     env:
+      # 🔧 Ajusta si tu spec no está justo aquí:
+      SPEC_PATH: mocks/openapi-billing.yml
+      # Tu código lee estas vars en src/config/env
       API_URL: http://127.0.0.1:4010
-      CONTRACT_OK: '123456'
+      CONTRACT_OK: '12345' # 5-10 dígitos (cumple el pattern del path param)
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Install deps
         run: npm ci
 
-      - name: List mocks folder (debug)
+      # --- Debug rápido para confirmar que el YAML existe y es accesible ---
+      - name: Show spec path
         run: |
-          echo "PWD=$(pwd)"
-          ls -la
-          echo "Listing mocks/ :"
-          ls -la mocks || true
-          echo "Show first lines of mocks/openapi-billing.yml:"
-          sed -n '1,40p' mocks/openapi-billing.yml || true
+          echo "Workspace: $GITHUB_WORKSPACE"
+          echo "SPEC_PATH: $SPEC_PATH"
+          ls -la $(dirname "$SPEC_PATH") || true
+          echo "---- Spec head ----"
+          sed -n '1,40p' "$SPEC_PATH" || true
+          echo "-------------------"
 
-      - name: Debug mocks folder
+      # --- Arranca Prism con npx, en background, y log a fichero ---
+      - name: Start Prism (background)
         run: |
-          ls -la mocks
-          sed -n '1,30p' mocks/openapi-billing.yml
+          npx -y @stoplight/prism-cli@5 mock -h 0.0.0.0 -p 4010 "$SPEC_PATH" > prism.log 2>&1 &
+          echo $! > prism.pid
+          sleep 1
+          echo "Prism PID: $(cat prism.pid)"
 
-      - name: Start Prism mock (detached)
+      # --- Espera real: primero puerto abierto, después endpoint del spec ---
+      - name: Wait for Prism (port + real endpoint probe)
         run: |
-          docker run -d --name prism \
-            -p 4010:4010 \
-            -v "${{ github.workspace }}/mocks:/work/mocks:ro" \
-            stoplight/prism:4 \
-            mock -h 0.0.0.0 -p 4010 /work/mocks/openapi-billing.yml
-          docker ps -a
-
-      - name: Prism logs (debug)
-        run: docker logs prism || true
-
-      - name: Wait for Prism to be ready (probe real endpoint)
-        run: |
-          # Espera a que el puerto esté abierto
+          # Esperar a que el puerto esté abierto
           for i in {1..60}; do
             if (echo > /dev/tcp/127.0.0.1/4010) >/dev/null 2>&1; then
-              echo "Port 4010 is open"; break
-            fi
+              echo "Port 4010 is open"; break; fi
             echo "Waiting for port 4010... ($i)"; sleep 1
           done
 
-          # Ahora golpea un endpoint del spec; nos vale cualquier HTTP code != 000
+          # Golpear un endpoint real del spec; nos vale cualquier código != 000
           for i in {1..40}; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               -H "Accept: application/json" \
               -H "Authorization: Bearer anything" \
-              http://127.0.0.1:4010/12345/invoices)
+              "http://127.0.0.1:4010/${CONTRACT_OK}/invoices")
             if [ "$CODE" != "000" ]; then
-              echo "Prism answering on /12345/invoices with HTTP $CODE"; exit 0
-            fi
-            echo "Waiting for Prism HTTP response... ($i)"; sleep 2
+              echo "Prism answered /${CONTRACT_OK}/invoices with HTTP $CODE"; exit 0; fi
+            echo "Waiting Prism HTTP response... ($i)"; sleep 2
           done
 
-          echo "Prism not responding in time"; docker logs prism || true; exit 1
+          echo "Prism did not respond in time. Prism log tail:"
+          tail -n 200 prism.log || true
+          exit 1
 
       - name: Run tests
         run: npm test
 
-      - name: Always show Prism logs on failure
+      # --- Siempre muestra logs de Prism si algo falla ---
+      - name: Show Prism logs on failure
         if: failure()
-        run: docker logs prism || true
+        run: |
+          echo "===== PRISM LOG (tail) ====="
+          tail -n 400 prism.log || true
 
+      # --- Para Prism pase lo que pase ---
       - name: Stop Prism
         if: always()
-        run: docker rm -f prism || true
+        run: |
+          if [ -f prism.pid ]; then kill "$(cat prism.pid)" 2>/dev/null || true; fi
+
+      # (Opcional) Sube logs y reports como artefactos
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-artifacts
+          path: |
+            prism.log
+            reports/**
+          if-no-files-found: ignore
