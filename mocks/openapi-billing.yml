@@ -1,0 +1,1721 @@
+info:
+  title: IONOS Cloud Billing API
+  version: 3.9.0
+  description: |-
+    # Overview
+    The IONOS Billing API is a REST API that can be used to retrieve information about resource usage and invoices. Information on usage is provided without liability.
+
+    # Access Permissions
+    Both Contract Owners and Contract Admins have access to the data, but Contract Admins for Reseller Sub-Contracts do not have permission to access the `/invoices` endpoint.
+openapi: 3.0.0
+servers:
+  - url: 'https://api.ionos.com/billing'
+    description: Production API
+paths:
+  '/{contract}/evn':
+    get:
+      tags:
+        - evn
+      description: Returns provisioning itemized data for a current month
+      operationId: evnGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evn'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/evn/{period}':
+    get:
+      tags:
+        - evn
+      description: Returns provisioning itemized data for a certain period
+      operationId: evnFindByPeriod
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/PeriodParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evn'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /intern/ping:
+    get:
+      tags:
+        - internal
+      description: Check the API health
+      operationId: internalPingGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: returns a value >= -1 when API is available
+  '/{contract}/invoices':
+    get:
+      tags:
+        - invoices
+      description: Returns a list of all invoices.
+      operationId: invoicesGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metadata:
+                    $ref: '#/components/schemas/MetaData'
+                  invoices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: GY00101408
+                        date:
+                          type: string
+                          pattern: '^\d{4}-\d{2}$'
+                          example: 2020-01
+                        amount:
+                          type: number
+                          nullable: true
+                          example: 10.76
+                        unit:
+                          type: string
+                          nullable: true
+                          example: EUR
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/invoices/{id}':
+    get:
+      tags:
+        - invoices
+      description: Returns the invoice for a given invoice ID.
+      operationId: invoicesFindById
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/InvoiceIdParameter'
+        - $ref: '#/components/parameters/DateFormatQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Invoice with the ID not found
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                status: 404
+                code: NotFoundError
+                message: Requested invoiceId not found
+        '409':
+          description: Invoice with the ID doesn't belong to the contract
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                status: 409
+                code: ConflictError
+                message: The invoiceId doesn't belong to the user
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/invoices/{period}':
+    get:
+      tags:
+        - invoices
+      description: Returns invoices of billing profiles of a use.
+      operationId: invoicesFindByPeriod
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PeriodParameter'
+        - $ref: '#/components/parameters/ContractIdQueryParameter'
+        - $ref: '#/components/parameters/DateFormatQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  status: 413
+                  code: PayloadTooLargeError
+                  message: More than 80 profiles available. Please query subsequently
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/products':
+    get:
+      tags:
+        - products
+      description: Returns a list of products available for the given contract (only billable and active)
+      operationId: productsGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/DateQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metadata:
+                    $ref: '#/components/schemas/MetaData'
+                  liability:
+                    type: string
+                    example: Please double check your contract for prices.
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /profile:
+    get:
+      tags:
+        - profile
+      description: Retrieves the billing profile(s) of the authenticated account
+      operationId: profileGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  companies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MetaData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/traffic':
+    get:
+      tags:
+        - traffic
+      description: Get a high-granularity list of utilization resources for current month by default
+      operationId: trafficGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/IpQueryParameter'
+        - $ref: '#/components/parameters/OutputQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TrafficVDC'
+                  - $ref: '#/components/schemas/TrafficNIC'
+                discriminator:
+                  propertyName: type
+                  mapping:
+                    vdc: '#/components/schemas/TrafficVDC'
+                    nic: '#/components/schemas/TrafficNIC'
+              example:
+                type: vdc
+                trafficObj:
+                  ip:
+                    - vdcUUID: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                      vdcName: Main VDC
+                      ip: 157.97.107.158
+                      dates:
+                        - Date: '2019-08-01'
+                          In: '0.7254719333723187'
+                          Out: '0.22908576484769583'
+                        - Date: '2019-08-02'
+                          In: '1.2738572908565402'
+                          Out: '0.24987032916396856'
+                        - Date: '2019-08-03'
+                          In: '0.3472602190449834'
+                          Out: 0.23526559863239527
+                    - vdcUUID: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                      vdcName: Main VDC
+                      ip: 157.97.107.157
+                      dates:
+                        - Date: '2019-08-01'
+                          In: '0.0443666810169816'
+                          Out: '0.15891019999980927'
+                        - Date: '2019-08-02'
+                          In: '0.04538741987198591'
+                          Out: '0.16538945399224758'
+                        - Date: '2019-08-03'
+                          In: '0.04669629875570536'
+                          Out: '0.16466102469712496'
+                trafficArr:
+                  - - In/Out
+                    - VDC UUID
+                    - VDC Name
+                    - IP
+                    - '2019-08-01'
+                    - '2019-08-02'
+                    - '2019-08-03'
+                  - - In
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.158
+                    - '0.7254719333723187'
+                    - '1.2738572908565402'
+                    - '0.3472602190449834'
+                  - - Out
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.158
+                    - '0.22908576484769583'
+                    - '0.24987032916396856'
+                    - '0.23526559863239527'
+                  - - In
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.157
+                    - '0.0443666810169816'
+                    - '0.04538741987198591'
+                    - '0.04669629875570536'
+                  - - Out
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.157
+                    - '0.15891019999980927'
+                    - '0.16538945399224758'
+                    - '0.16466102469712496'
+                traffic:
+                  - 'In/Out,VDC UUID,VDC Name,IP,2019-08-01,2019-08-02,2019-08-03'
+                  - 'In,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.158,0.7254719333723187,1.2738572908565402,0.3472602190449834'
+                  - 'Out,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.158,0.22908576484769583,0.24987032916396856,0.23526559863239527'
+                  - 'In,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.157,0.0443666810169816,0.04538741987198591,0.04669629875570536'
+                  - 'Out,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.157,0.15891019999980927,0.16538945399224758,0.16466102469712496'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/traffic/{period}':
+    get:
+      tags:
+        - traffic
+      description: Get a high-granularity list of utilization resources for a certain period
+      operationId: trafficFindByPeriod
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/PeriodParameter'
+        - $ref: '#/components/parameters/IpQueryParameter'
+        - $ref: '#/components/parameters/OutputQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TrafficVDC'
+                  - $ref: '#/components/schemas/TrafficNIC'
+                discriminator:
+                  propertyName: type
+                  mapping:
+                    vdc: '#/components/schemas/TrafficVDC'
+                    nic: '#/components/schemas/TrafficNIC'
+              example:
+                type: vdc
+                trafficObj:
+                  ip:
+                    - vdcUUID: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                      vdcName: Main VDC
+                      ip: 157.97.107.158
+                      dates:
+                        - Date: '2019-08-01'
+                          In: '0.7254719333723187'
+                          Out: 0.22908576484769583
+                        - Date: '2019-08-02'
+                          In: '1.2738572908565402'
+                          Out: 0.24987032916396856
+                        - Date: '2019-08-03'
+                          In: '0.3472602190449834'
+                          Out: 0.23526559863239527
+                    - vdcUUID: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                      vdcName: Main VDC
+                      ip: 157.97.107.157
+                      dates:
+                        - Date: '2019-08-01'
+                          In: 0.0443666810169816
+                          Out: 0.15891019999980927
+                        - Date: '2019-08-02'
+                          In: 0.04538741987198591
+                          Out: 0.16538945399224758
+                        - Date: '2019-08-03'
+                          In: 0.04669629875570536
+                          Out: 0.16466102469712496
+                trafficArr:
+                  - - In/Out
+                    - VDC UUID
+                    - VDC Name
+                    - IP
+                    - '2019-08-01'
+                    - '2019-08-02'
+                    - '2019-08-03'
+                  - - In
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.158
+                    - '0.7254719333723187'
+                    - '1.2738572908565402'
+                    - '0.3472602190449834'
+                  - - Out
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.158
+                    - '0.22908576484769583'
+                    - '0.24987032916396856'
+                    - '0.23526559863239527'
+                  - - In
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.157
+                    - '0.0443666810169816'
+                    - '0.04538741987198591'
+                    - '0.04669629875570536'
+                  - - Out
+                    - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                    - Main VDC
+                    - 157.97.107.157
+                    - '0.15891019999980927'
+                    - '0.16538945399224758'
+                    - '0.16466102469712496'
+                traffic:
+                  - 'In/Out,VDC UUID,VDC Name,IP,2019-08-01,2019-08-02,2019-08-03'
+                  - 'In,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.158,0.7254719333723187,1.2738572908565402,0.3472602190449834'
+                  - 'Out,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.158,0.22908576484769583,0.24987032916396856,0.23526559863239527'
+                  - 'In,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.157,0.0443666810169816,0.04538741987198591,0.04669629875570536'
+                  - 'Out,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.157,0.15891019999980927,0.16538945399224758,0.16466102469712496'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/usage':
+    get:
+      tags:
+        - usage
+      description: Returns the usage of a contract
+      operationId: usageGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/PeriodQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  startDate:
+                    type: string
+                    format: date
+                    example: '2020-01-01'
+                  endDate:
+                    type: string
+                    format: date
+                    example: '2020-01-12'
+                  datacenters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UsageDataCenter'
+                  metadata:
+                    $ref: '#/components/schemas/MetaData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict when getting the invoice data for usage calculation
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                status: 409
+                code: ConflictError
+                message: Conflict
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/usage/{dc}':
+    get:
+      tags:
+        - usage
+      description: Returns the usage of a contract for a given data-center
+      operationId: usageFindByDC
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/DcParameter'
+        - $ref: '#/components/parameters/PeriodQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  startDate:
+                    type: string
+                    format: date
+                    example: '2020-01-01'
+                  endDate:
+                    type: string
+                    format: date
+                    example: '2020-01-12'
+                  datacenters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UsageDataCenter'
+                  metadata:
+                    $ref: '#/components/schemas/MetaData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict when getting the invoice data for usage calculation
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                status: 409
+                code: ConflictError
+                message: Conflict
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/utilization':
+    get:
+      tags:
+        - utilization
+      description: Get a high-granularity data of resources utilization
+      operationId: utilizationGet
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/DcQueryParameter'
+        - $ref: '#/components/parameters/ResourceQueryParameter'
+        - $ref: '#/components/parameters/TypeQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  startDate:
+                    type: string
+                    format: date
+                    example: '2020-01-01'
+                  endDate:
+                    type: string
+                    format: date
+                    example: '2020-01-12'
+                  datacenters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UtilizationDataCenter'
+                  metadata:
+                    $ref: '#/components/schemas/MetaData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/utilization/{period}':
+    get:
+      tags:
+        - utilization
+      description: Get a high-granularity data of resources utilization for a certain period
+      operationId: utilizationFindByPeriod
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/PeriodParameter'
+        - $ref: '#/components/parameters/DcQueryParameter'
+        - $ref: '#/components/parameters/ResourceQueryParameter'
+        - $ref: '#/components/parameters/TypeQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  startDate:
+                    type: string
+                    format: date
+                    example: '2020-01-01'
+                  endDate:
+                    type: string
+                    format: date
+                    example: '2020-01-12'
+                  datacenters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UtilizationDataCenter'
+                  metadata:
+                    $ref: '#/components/schemas/MetaData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  '/{contract}/utilization/daily/{date}':
+    get:
+      tags:
+        - utilization
+      description: Get a high-granularity data of resources utilization for a certain date
+      operationId: utilizationDailyFindById
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractParameter'
+        - $ref: '#/components/parameters/DateParameter'
+        - $ref: '#/components/parameters/DcQueryParameter'
+        - $ref: '#/components/parameters/ResourceQueryParameter'
+        - $ref: '#/components/parameters/TypeQueryParameter'
+      responses:
+        '200':
+          description: Result data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  startDate:
+                    type: string
+                    format: date
+                    example: '2025-09-15'
+                  endDate:
+                    type: string
+                    format: date
+                    example: '2025-09-15'
+                  datacenters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UtilizationDataCenter'
+                  metadata:
+                    $ref: '#/components/schemas/MetaData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    MetaData:
+      type: object
+      properties:
+        contractId:
+          type: integer
+        customerId:
+          type: integer
+        reference:
+          type: string
+          nullable: true
+      example:
+        contractId: 31805900
+        customerId: 112505406
+        reference: '31805900'
+    EvnItem:
+      type: object
+      properties:
+        resourceType:
+          $ref: '#/components/schemas/ResourceTypes'
+        resourceUUID:
+          type: string
+          format: uuid
+          example: 83debc7b-fbee-4c69-83a9-df57bb186726
+        intervalMin:
+          type: integer
+          example: 44640
+        intervalDivisor:
+          type: integer
+          example: 60
+        from:
+          type: string
+          format: date-time
+          example: '2020-01-01T00:00:00.000Z'
+        to:
+          type: string
+          format: date-time
+          example: '2020-01-31T23:59:59.999Z'
+        itemStub:
+          type: string
+          enum:
+            - A01000
+            - ALB1000
+            - ALB1100
+            - C01000
+            - C02000
+            - C03000
+            - CC1000
+            - CR1000
+            - CUBExxxx
+            - CWSQL1001
+            - CWSQL2001
+            - CWSQL3001
+            - CWSQL1000
+            - CWSQL2000
+            - DAS1000
+            - NAT1000
+            - NC1000
+            - NLB1000
+            - NLB1100
+            - R01000
+            - S01000
+            - S02000
+            - S03000
+            - S05000
+            - WL1000
+            - WL2000
+            - WL3000
+            - WL4000
+            - WL5000
+            - WL6000
+          example: C01000
+        value:
+          type: number
+          example: 4
+        valueDivisor:
+          type: integer
+          example: 1
+        additionalParameters:
+          type: string
+          example: AMD_OPTERON
+    Evn:
+      type: object
+      properties:
+        metadata:
+          allOf:
+            - $ref: '#/components/schemas/MetaData'
+            - type: object
+              properties:
+                period:
+                  type: string
+                  example: 2020-01
+        datacenters:
+          type: array
+          items:
+            type: object
+            properties:
+              vdcUUID:
+                type: string
+                format: uuid
+                example: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+              name:
+                type: string
+                example: Main VDC
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvnItem'
+        evnCSV:
+          type: array
+          items:
+            type: string
+          example:
+            - 'contractId,VDCUUID,VDCName,ResourceType,ResourceUUID,IntervalMin,IntervalDivisor,From,To,ItemStub,Value,ValueDivisor,Additional Parameters'
+            - '31805900,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,SERVER,504b4dff-56e3-49cd-89b1-dbed716c6265,44640,60,2020-01-01T00:00:00.000Z,2020-01-31T23:59:59.999Z,C01000,2,1,AMD_OPTERON'
+      example:
+        metadata:
+          customerId: 112505406
+          contractId: 31805900
+          period: 2020-01
+        datacenters:
+          - vdcUUID: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+            name: Main VDC
+            data:
+              - resourceType: SERVER
+                resourceUUID: 504b4dff-56e3-49cd-89b1-dbed716c6265
+                intervalMin: 44640
+                intervalDivisor: 60
+                from: '2020-01-01T00:00:00.000Z'
+                to: '2020-01-31T23:59:59.999Z'
+                itemStub: C01000
+                value: 2
+                valueDivisor: 1
+                additionalParameters: AMD_OPTERON
+        evnCSV:
+          - 'contractId,VDCUUID,VDCName,ResourceType,ResourceUUID,IntervalMin,IntervalDivisor,From,To,ItemStub,Value,ValueDivisor,Additional Parameters'
+          - '31805900,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,SERVER,504b4dff-56e3-49cd-89b1-dbed716c6265,44640,60,2020-01-01T00:00:00.000Z,2020-01-31T23:59:59.999Z,C01000,2,1,AMD_OPTERON'
+    InvoiceTotal:
+      type: object
+      properties:
+        quantity:
+          type: number
+          example: 2.94
+        unit:
+          type: string
+          example: EUR
+    InvoiceMeter:
+      type: object
+      properties:
+        meterId:
+          type: string
+          example: C010EU
+        meterDesc:
+          type: string
+          example: 1h core AMD - EU
+        productGroup:
+          type: string
+          nullable: true
+          example: PG 1
+          description: Product group of the price item
+        quantity:
+          type: object
+          properties:
+            quantity:
+              type: number
+              example: 12960
+            unit:
+              type: string
+              example: 1hour
+        rate:
+          $ref: '#/components/schemas/InvoiceTotal'
+        amount:
+          $ref: '#/components/schemas/InvoiceTotal'
+    Invoice:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            invoiceId:
+              type: string
+              example: GY00012345
+            contractId:
+              type: integer
+              example: 318002123
+            customerId:
+              type: integer
+              example: 112345678
+            createdDate:
+              type: string
+              format: date-time
+              example: '2020-02-05T04:00:00'
+            startDate:
+              type: string
+              format: date
+              example: '2020-01-01'
+            endDate:
+              type: string
+              format: date
+              example: '2020-01-31'
+            postingPeriod:
+              type: string
+              example: 2020-01
+            finallyPosted:
+              type: boolean
+              example: true
+            reference:
+              type: string
+              nullable: true
+              example: 123456|111
+            resellerRef:
+              type: string
+              nullable: true
+              example: bricksonline
+              description: Reference text or number for the subcontract set by the reseller
+        datacenters:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+                example: 54eb1ed9-06f5-4bfb-a4f0-07cc373f5ee1
+              name:
+                type: string
+                example: Main VDC
+              location:
+                type: string
+                example: EU
+              productGroup:
+                type: string
+                nullable: true
+                example: PG 1
+                description: Product group of the data center
+              meters:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvoiceMeter'
+              rebate:
+                type: object
+                properties:
+                  amount:
+                    $ref: '#/components/schemas/InvoiceTotal'
+        total:
+          $ref: '#/components/schemas/InvoiceTotal'
+    Product:
+      type: object
+      properties:
+        meterId:
+          type: string
+          description: Product code (just active will be provided)
+          enum:
+            - A01000
+            - A01NEX
+            - ALB1000
+            - ALB1100
+            - BU1100
+            - BU1200
+            - BU1300
+            - BU1400
+            - BU1500
+            - C01000
+            - C010EU
+            - C010US
+            - C02000
+            - C03000
+            - CC1000
+            - CR1000
+            - CUBExxxx
+            - CTI1000
+            - CTO1100
+            - CTO1200
+            - CTO1300
+            - CTO1400
+            - CWSQL1001
+            - CWSQL2001
+            - CWSQL3001
+            - CWSQL1000
+            - CWSQL2000
+            - DAS1000
+            - DBPGB1000
+            - DBPGC1000
+            - DBPGR1000
+            - DBPGS1000
+            - DBPGS2000
+            - DBPGS3000
+            - NAT1000
+            - NC1000
+            - NLB1000
+            - NLB1100
+            - R01000
+            - R010EU
+            - R010US
+            - S01000
+            - S02000
+            - S03000
+            - S05000
+            - S3AU1100
+            - S3AU1200
+            - S3AU1300
+            - S3RD1100
+            - S3SU1100
+            - S3SU1200
+            - S3SU1300
+            - S3TI1000
+            - S3TI1100
+            - S3TO1000
+            - S3TO1100
+            - S3TO1200
+            - S3TO1300
+            - S3TO1400
+            - S3WR1100
+            - TI1000
+            - TO1000
+            - WL1000
+            - WL2000
+            - WL3000
+            - WL4000
+            - WL5000
+            - WL6000
+        meterDesc:
+          type: string
+          description: Product description (human readable)
+        deprecated:
+          type: boolean
+          description: The flag specifies whether the product is marked as deprecated
+        unit:
+          type: string
+          description: The unit applied for the product during computation
+        unitCost:
+          type: object
+          nullable: true
+          properties:
+            quantity:
+              type: number
+            unit:
+              type: string
+              enum:
+                - EUR
+                - USD
+                - CAD
+                - GBP
+                - MXN
+      example:
+        meterId: C01000
+        meterDesc: 1h core AMD
+        unit: 1hour
+        unitCost:
+          quantity: 0.02
+          unit: EUR
+    TrafficEntry:
+      type: object
+      properties:
+        Date:
+          type: string
+          format: date
+          example: '2020-01-01'
+        In:
+          type: number
+          example: 0.7254719333723187
+        Out:
+          type: number
+          example: 0.24987032916396856
+    TrafficVDC:
+      type: object
+      properties:
+        metadata:
+          allOf:
+            - $ref: '#/components/schemas/MetaData'
+            - type: object
+              properties:
+                period:
+                  type: string
+                  example: 2020-01
+                unit:
+                  type: string
+                  example: Bytes
+        trafficObj:
+          type: object
+          properties:
+            vdc:
+              type: array
+              items:
+                type: object
+                properties:
+                  vdcUUID:
+                    type: string
+                    format: uuid
+                    example: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                  vdcName:
+                    type: string
+                    example: Main VDC
+                  dates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TrafficEntry'
+        trafficArr:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+          example:
+            - - In/Out
+              - VDC UUID
+              - VDC Name
+              - '2019-08-01'
+              - '2019-08-02'
+              - '2019-08-03'
+            - - In
+              - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+              - Main VDC
+              - '0.7254719333723187'
+              - '1.2738572908565402'
+              - '0.3472602190449834'
+            - - Out
+              - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+              - Main VDC
+              - '0.22908576484769583'
+              - '0.24987032916396856'
+              - '0.23526559863239527'
+        traffic:
+          type: array
+          items:
+            type: string
+          example:
+            - 'In/Out,VDC UUID,VDC Name,2019-08-01,2019-08-02,2019-08-03'
+            - 'In,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,0.7254719333723187,1.2738572908565402,0.3472602190449834'
+            - 'Out,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,0.22908576484769583,0.24987032916396856,0.23526559863239527'
+    TrafficNIC:
+      type: object
+      properties:
+        metadata:
+          allOf:
+            - $ref: '#/components/schemas/MetaData'
+            - type: object
+              properties:
+                period:
+                  type: string
+                  example: 2020-01
+                unit:
+                  type: string
+                  example: Bytes
+        trafficObj:
+          type: object
+          properties:
+            nic:
+              type: array
+              items:
+                type: object
+                properties:
+                  vdcUUID:
+                    type: string
+                    format: uuid
+                    example: f2c2edf6-49f7-4687-8100-872b4d02ddcc
+                  vdcName:
+                    type: string
+                    example: Main VDC
+                  ip:
+                    type: string
+                    example: 157.97.107.158
+                  dates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TrafficEntry'
+        trafficArr:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+          example:
+            - - In/Out
+              - VDC UUID
+              - VDC Name
+              - IP
+              - '2019-08-01'
+              - '2019-08-02'
+              - '2019-08-03'
+            - - In
+              - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+              - Main VDC
+              - 157.97.107.158
+              - '0.7254719333723187'
+              - '1.2738572908565402'
+              - '0.3472602190449834'
+            - - Out
+              - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+              - Main VDC
+              - 157.97.107.158
+              - '0.22908576484769583'
+              - '0.24987032916396856'
+              - '0.23526559863239527'
+            - - In
+              - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+              - Main VDC
+              - 157.97.107.157
+              - '0.0443666810169816'
+              - '0.04538741987198591'
+              - '0.04669629875570536'
+            - - Out
+              - f2c2edf6-49f7-4687-8100-872b4d02ddcc
+              - Main VDC
+              - 157.97.107.157
+              - '0.15891019999980927'
+              - '0.16538945399224758'
+              - '0.16466102469712496'
+        traffic:
+          type: array
+          items:
+            type: string
+          example:
+            - 'In/Out,VDC UUID,VDC Name,IP,2019-08-01,2019-08-02,2019-08-03'
+            - 'In,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.158,0.7254719333723187,1.2738572908565402,0.3472602190449834'
+            - 'Out,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.158,0.22908576484769583,0.24987032916396856,0.23526559863239527'
+            - 'In,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.157,0.0443666810169816,0.04538741987198591,0.04669629875570536'
+            - 'Out,f2c2edf6-49f7-4687-8100-872b4d02ddcc,Main VDC,157.97.107.157,0.15891019999980927,0.16538945399224758,0.16466102469712496'
+    UsageMeter:
+      type: object
+      properties:
+        meterId:
+          type: string
+          enum:
+            - A01000
+            - ALB1000
+            - ALB1100
+            - BU1100
+            - BU1200
+            - BU1300
+            - BU1400
+            - BU1500
+            - C01000
+            - C02000
+            - C03000
+            - CC1000
+            - CR1000
+            - CUBExxxx
+            - CWSQL1001
+            - CWSQL2001
+            - CWSQL3001
+            - CWSQL1000
+            - CWSQL2000
+            - DAS1000
+            - DBPGB1000
+            - DBPGC1000
+            - DBPGR1000
+            - DBPGS1000
+            - DBPGS2000
+            - DBPGS3000
+            - NAT1000
+            - NC1000
+            - NLB1000
+            - NLB1100
+            - R01000
+            - S01000
+            - S02000
+            - S03000
+            - S05000
+            - S3AU1100
+            - S3AU1200
+            - S3AU1300
+            - S3RD1100
+            - S3SU1100
+            - S3SU1200
+            - S3SU1300
+            - S3TI1000
+            - S3TI1100
+            - S3TO1000
+            - S3TO1100
+            - S3TO1200
+            - S3TO1300
+            - S3TO1400
+            - S3WR1100
+            - TI1000
+            - TO1000
+            - WL1000
+            - WL2000
+            - WL3000
+            - WL4000
+            - WL5000
+            - WL6000
+          example: C01000
+        meterDesc:
+          type: string
+          example: 1h core AMD
+        quantity:
+          type: object
+          properties:
+            quantity:
+              type: number
+              example: 742.00
+            unit:
+              type: string
+              example: 1hour
+    UsageDataCenter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: ad34b997-43c7-4666-889b-57acbeaeeb8b
+        name:
+          type: string
+          example: Main VDC
+        location:
+          type: string
+          example: EU
+        meters:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageMeter'
+    ResourceTypes:
+      type: string
+      enum:
+        - SERVER
+        - STORAGE
+        - SNAPSHOT
+        - NATGATEWAY
+        - NIC
+        - IP
+        - IP_ADDRESS
+        - CUBETEMPLATE
+        - LOADBALANCER
+        - BACKUP
+        - S3
+        - TRAFFIC
+        - DB
+        - BMC
+        - DBAAS
+        - CRAAS
+        - LAAS
+        - DSAAS
+        - DNS
+    UtilizationMeter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resourceId:
+          type: string
+          format: uuid
+          nullable: true
+        serverId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/ResourceTypes'
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        exists:
+          type: boolean
+          nullable: true
+        meterId:
+          type: string
+          enum:
+            - A01000
+            - ALB1000
+            - ALB1100
+            - BU1100
+            - BU1200
+            - BU1300
+            - BU1400
+            - BU1500
+            - C01000
+            - C02000
+            - C03000
+            - CC1000
+            - CR1000
+            - CUBExxxx
+            - CWSQL1001
+            - CWSQL2001
+            - CWSQL3001
+            - CWSQL1000
+            - CWSQL2000
+            - DAS1000
+            - DBPGB1000
+            - DBPGC1000
+            - DBPGR1000
+            - DBPGS1000
+            - DBPGS2000
+            - DBPGS3000
+            - NAT1000
+            - NC1000
+            - NLB1000
+            - NLB1100
+            - R01000
+            - S01000
+            - S02000
+            - S03000
+            - S05000
+            - S3AU1100
+            - S3AU1200
+            - S3AU1300
+            - S3RD1100
+            - S3SU1100
+            - S3SU1200
+            - S3SU1300
+            - S3TI1000
+            - S3TI1100
+            - S3TO1000
+            - S3TO1100
+            - S3TO1200
+            - S3TO1300
+            - S3TO1400
+            - S3WR1100
+            - TI1000
+            - TO1000
+            - WL1000
+            - WL2000
+            - WL3000
+            - WL4000
+            - WL5000
+            - WL6000
+        meterDesc:
+          type: string
+        region:
+          type: string
+        quantity:
+          type: object
+          properties:
+            quantity:
+              type: number
+            unit:
+              type: string
+      example:
+        id: 83debc7b-fbee-4c69-83a9-df57bb186726
+        resourceId: 86263665-8ce4-4d6c-ae26-58a2cecc2974
+        serverId: 86263665-8ce4-4d6c-ae26-58a2cecc2974
+        name: Main server
+        type: SERVER
+        from: '2020-01-01T00:00:00.000Z'
+        to: '2020-01-12T23:59:59.999Z'
+        exists: true
+        meterId: C01000
+        meterDesc: 1h core AMD
+        region: de/txl
+        quantity:
+          quantity: 742.00
+          unit: 1hour
+    UtilizationDataCenter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        meters:
+          type: array
+          items:
+            $ref: '#/components/schemas/UtilizationMeter'
+      example:
+        id: ad34b997-43c7-4666-889b-57acbeaeeb8b
+        name: Standard-Image
+        meters:
+          - id: 83debc7b-fbee-4c69-83a9-df57bb186726
+            resourceId: 86263665-8ce4-4d6c-ae26-58a2cecc2974
+            serverId: 86263665-8ce4-4d6c-ae26-58a2cecc2974
+            name: Main server
+            type: SERVER
+            from: '2020-01-01T00:00:00.000Z'
+            to: '2020-01-12T23:59:59.999Z'
+            exists: true
+            meterId: C01000
+            meterDesc: 1h core AMD
+            region: de/txl
+            quantity:
+              quantity: 742.00
+              unit: 1hour
+  parameters:
+    ContractParameter:
+      name: contract
+      in: path
+      description: Contract number
+      required: true
+      schema:
+        type: integer
+        pattern: '[0-9]{5,10}'
+    DateParameter:
+      name: date
+      in: path
+      description: Date of interest in format YYYY-MM-DD
+      required: true
+      schema:
+        type: string
+        nullable: true
+        pattern: '^(\d{4}-\d{2}-\d{2})$'
+        example: '2025-09-15'
+    DcParameter:
+      name: dc
+      in: path
+      description: Get data for the particular data-center ID (VDC UUID)
+      required: true
+      schema:
+        type: string
+        nullable: true
+        pattern: '^([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}|null)$'
+        example: ad34b997-43c7-4666-889b-57acbeaeeb8b
+    InvoiceIdParameter:
+      name: id
+      in: path
+      description: Invoice ID
+      required: true
+      schema:
+        type: string
+    PeriodParameter:
+      name: period
+      in: path
+      description: Period of interest in format YYYY-MM
+      required: true
+      schema:
+        type: string
+        pattern: '^(\d{4}-\d{2}|null)$'
+        example: 2020-01
+    ContractIdQueryParameter:
+      name: contractid
+      in: query
+      description: Filter out the exact contractID
+      required: false
+      schema:
+        type: string
+    DateQueryParameter:
+      name: date
+      in: query
+      description: Date of interest in format of YYYY-MM-DD
+      required: false
+      schema:
+        type: string
+        format: date
+        example: '2025-01-01'
+    DateFormatQueryParameter:
+      name: dateformat
+      in: query
+      description: Vendor date format
+      required: false
+      schema:
+        type: string
+    DcQueryParameter:
+      name: dc
+      in: query
+      description: Filter out by particular VDC UUID (or "Bucket" UUID for non-vdc related resources)
+      required: false
+      schema:
+        type: string
+        format: uuid
+    IpQueryParameter:
+      name: ip
+      in: query
+      description: Provide report grouped by IPs
+      required: false
+      schema:
+        type: boolean
+    OutputQueryParameter:
+      name: output
+      in: query
+      description: 'The output format (object, array, CSV or all of them)'
+      required: false
+      schema:
+        type: string
+        default: all
+        enum:
+          - all
+          - obj
+          - arr
+          - csv
+    PeriodQueryParameter:
+      name: period
+      in: query
+      description: Period of interest in format YYYY-MM (current month by default if not specified)
+      required: false
+      schema:
+        type: string
+        pattern: '^\d{4}-\d{2}$'
+    ResourceQueryParameter:
+      name: resource
+      in: query
+      description: Filter out by particular resource UUID (e.g.VM UUID, NIC UUID)
+      required: false
+      schema:
+        type: string
+        format: uuid
+    TypeQueryParameter:
+      name: type
+      in: query
+      description: Filter out by particular type of items
+      required: false
+      schema:
+        $ref: '#/components/schemas/ResourceTypes'
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            example:
+              status: 401
+              code: UnauthorizedError
+              message: Credentials failed
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            type: object
+            example:
+              status: 403
+              code: ForbiddenError
+              message: Restricted access
+    NotFound:
+      description: The contract not found or doesn't belong to the user
+      content:
+        application/json:
+          schema:
+            type: object
+            example:
+              status: 404
+              code: NotFoundError
+              message: ContractId not found for user
+    Unprocessable:
+      description: Wrong period format specified
+      content:
+        application/json:
+          schema:
+            type: object
+          example:
+            status: 422
+            code: UnprocessableEntityError
+            message: Period invalid
+    InternalError:
+      description: Unexpected internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            example:
+              status: 500
+              code: InternalServerError
+              message: Unexpected error
+tags:
+  - name: evn
+    description: EVN data
+  - name: internal
+    description: Internal data
+  - name: invoices
+    description: Invoice data
+  - name: traffic
+    description: Traffic data
+  - name: utilization
+    description: Utilization data
+  - name: profile
+    description: Profile data
+  - name: products
+    description: Product data
+  - name: usage
+    description: Usage data
