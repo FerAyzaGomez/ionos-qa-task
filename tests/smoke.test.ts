@@ -1,6 +1,6 @@
 import { api } from '../src/http/client';
 
-describe.skip('Billing API mock smoke test', () => {
+describe('Billing API mock smoke test', () => {
   it('200 with auth header', async () => {
     const res = await api.get('/123456/invoices', {
       headers: { Authorization: 'Bearer dummy' },
@@ -13,3 +13,5 @@ describe.skip('Billing API mock smoke test', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// Note: This is a basic smoke test to ensure the mock server is running and responding.
