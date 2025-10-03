@@ -27,28 +27,43 @@ jobs:
           echo "Show first lines of mocks/openapi-billing.yml:"
           sed -n '1,40p' mocks/openapi-billing.yml || true
 
+      - name: Debug mocks folder
+        run: |
+          ls -la mocks
+          sed -n '1,30p' mocks/openapi-billing.yml
+
       - name: Start Prism mock (detached)
         run: |
           docker run -d --name prism \
             -p 4010:4010 \
             -v "${{ github.workspace }}/mocks:/work/mocks:ro" \
-            --pull always \
             stoplight/prism:4 \
             mock -h 0.0.0.0 -p 4010 /work/mocks/openapi-billing.yml
-          echo "Container started:"
           docker ps -a
 
-      - name: Wait for Prism to be healthy
+      - name: Wait for Prism to be ready (probe real endpoint)
         run: |
-          for i in {1..40}; do
-            if curl -fsS http://127.0.0.1:4010/_prism/health >/dev/null; then
-              echo "Prism is healthy"; exit 0; fi
-            echo "Waiting for Prism... ($i)"
-            sleep 2
+          # Espera a que el puerto esté abierto
+          for i in {1..60}; do
+            if (echo > /dev/tcp/127.0.0.1/4010) >/dev/null 2>&1; then
+              echo "Port 4010 is open"; break
+            fi
+            echo "Waiting for port 4010... ($i)"; sleep 1
           done
-          echo "Prism not healthy in time. Dumping logs:"
-          docker logs prism || true
-          exit 1
+
+          # Ahora golpea un endpoint del spec; nos vale cualquier HTTP code != 000
+          for i in {1..40}; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Accept: application/json" \
+              -H "Authorization: Bearer anything" \
+              http://127.0.0.1:4010/12345/invoices)
+            if [ "$CODE" != "000" ]; then
+              echo "Prism answering on /12345/invoices with HTTP $CODE"; exit 0
+            fi
+            echo "Waiting for Prism HTTP response... ($i)"; sleep 2
+          done
+
+          echo "Prism not responding in time"; docker logs prism || true; exit 1
 
       - name: Run tests
         run: npm test
