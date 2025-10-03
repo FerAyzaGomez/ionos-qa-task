@@ -1,12 +1,12 @@
 import request from 'supertest';
 import { expectJsonContentType } from '../../../src/helpers/validation';
-// import * as errorsValidators from '../../../src/validators/errors.validators';
-// import type { ErrorResponse } from '../../../src/validators/errors.validators';
 import { API_URL, CONTRACT_OK } from '../../../src/config/env';
 
+// RESPONSE PROVIDED BY THE MOCK SERVER FOR THIS TESTS
+// Since the .yml provided does not support these kind of errors the response are generated generically by the mock server so I do not analize them.
+// The response code lines are commented in each test below.
 describe('Invoices - Edge cases', () => {
   let res: { status: number; headers: Record<string, string>; body: unknown };
-
   test('405 Method Not Allowed - POST not supported', async () => {
     res = await request(API_URL)
       .post(`/${CONTRACT_OK}/invoices`)
@@ -14,8 +14,6 @@ describe('Invoices - Edge cases', () => {
       .send({ any: 'payload' });
 
     expect(res.status).toBe(405);
-    // Since the .yml provided does not support this kind of error the response is generated generically by the mock server so I dont analize it.
-    // If the response was configured this next two code lines should be uncommented.
     // expectJsonContentType(res.headers);
     // errorsValidators.expectErrorRootShape(res.body as ErrorResponse);
   });
@@ -27,6 +25,8 @@ describe('Invoices - Edge cases', () => {
       .send({ any: 'payload' });
 
     expect(res.status).toBe(405);
+    // expectJsonContentType(res.headers);
+    // errorsValidators.expectErrorRootShape(res.body as ErrorResponse);
   });
 
   test('405 Method Not Allowed - DELETE not supported', async () => {
@@ -35,17 +35,17 @@ describe('Invoices - Edge cases', () => {
       .set('Accept', 'application/json');
 
     expect(res.status).toBe(405);
+    // expectJsonContentType(res.headers);
+    // errorsValidators.expectErrorRootShape(res.body as ErrorResponse);
   });
 
-  test('406 Not Acceptable - requesting application/xml', async () => {
+  test('406 Not Acceptable - requesting text/csv', async () => {
     res = await request(API_URL)
       .get(`/${CONTRACT_OK}/invoices`)
       .set('Accept', 'text/csv')
       .set('Authorization', 'Bearer anything');
 
     expect(res.status).toBe(406);
-    // Since the .yml provided does not support this kind of error the response is generated generically by the mock server so I dont analize it.
-    // If the response was configured this next two code lines should be uncommented.
     // expectJsonContentType(res.headers);
     // errorsValidators.expectErrorRootShape(res.body as ErrorResponse);
   });
@@ -57,15 +57,19 @@ describe('Invoices - Edge cases', () => {
       .set('Authorization', 'Bearer anything');
 
     expect(res.status).toBe(404);
+    // expectJsonContentType(res.headers);
+    // errorsValidators.expectErrorRootShape(res.body as ErrorResponse);
   });
 
-  test('404 Not Found - contract with illegal chars (URL encoded)', async () => {
+  test('404 Not Found - path does not exist (missing contract segment)', async () => {
     res = await request(API_URL)
       .get(`/invoices`)
       .set('Accept', 'application/json')
       .set('Authorization', 'Bearer anything');
 
     expect(res.status).toBe(404);
+    // expectJsonContentType(res.headers);
+    // errorsValidators.expectErrorRootShape(res.body as ErrorResponse);
   });
 
   test('404 Not Found - overly long contract id', async () => {
@@ -74,8 +78,7 @@ describe('Invoices - Edge cases', () => {
       .get(`/${longId}/invoices`)
       .set('Accept', 'application/json')
       .set('Authorization', 'Bearer anything');
-    // The mock server returns 422 instead of 404 for this case. I understand that in a real server it should be 404.
-    // If the mock server is changed to return 404 this next three code lines should be uncommented.
+    // The mock server returns 422 instead of 404 for this case.
     // expect(res.status).toBe(404);
     // expectJsonContentType(res.headers);
     // errorsValidators.expectErrorRootShape(res.body as ErrorResponse);
